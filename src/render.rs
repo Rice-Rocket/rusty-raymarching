@@ -1,6 +1,22 @@
-#[path = "primitive.rs"] mod primitive;
+#[path = "scene.rs"] mod scene;
+pub use scene::*;
 use image::{ImageBuffer, self};
-pub use primitive::*;
+
+
+pub fn march(scene: &Scene, origin: Vec3, direction: Vec3, max_steps: usize, max_dist: f32, surf_dist: f32) -> f32 {
+    let mut dist = 0.;
+
+    for i in 0..max_steps {
+        let p = origin + direction * dist;
+        let ds = scene.signed_distance(p);
+        dist += ds;
+        if (dist > max_dist) || (ds < surf_dist) {
+            break;
+        }
+    }
+
+    return dist;
+}
 
 
 pub fn write_color(imgbuf: &mut ImageBuffer<image::Rgb<u8>, Vec<u8>>, x: i32, y: i32, color: Rgb) {
@@ -20,21 +36,28 @@ pub fn write_color(imgbuf: &mut ImageBuffer<image::Rgb<u8>, Vec<u8>>, x: i32, y:
 }
 
 
-
-
-
 pub fn render_frame(image_width: i32, image_height: i32) -> ImageBuffer<image::Rgb<u8>, Vec<u8>> {
     let resolution = Vec2::new(image_width as f32, image_height as f32);
     let mut imgbuf = ImageBuffer::new(image_width as u32, image_height as u32);
+
+    let max_steps = 100;
+    let max_dist = 100.;
+    let surf_dist = 0.01;
+
+    let mut scene = Scene::new();
+    scene.add(Primitive::sphere(Point3::new(0., 1., 6.), 1.));
+    scene.add(Primitive::aa_plane(Axis::Y, 0.));
+
     for x in 0..image_width {
         for y in 0..image_height {
-            let uv = (Vec2::new(x as f32, y as f32) - resolution * 0.5) / resolution.y;
+            let uv = (Vec2::new(x as f32, (image_height - y) as f32) - resolution * 0.5) / resolution.y;
 
-            let color = Vec3::origin();
+            let origin = Vec3::new(0., 1., 0.);
+            let direction = Vec3::new(uv.x, uv.y, 1.).normalize();
 
-            let ro = Vec3::new(0., 1., 0.);
-            let rd = Vec3::new(uv.x, uv.y, 1.).normalize();
-
+            let mut d = march(&scene, origin, direction, max_steps, max_dist, surf_dist);
+            d /= 6.;
+            let color = Vec3::new(d, d, d);
             write_color(&mut imgbuf, x, y, color);
         };
     };
