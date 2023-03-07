@@ -169,6 +169,15 @@ impl Vec2 {
     pub fn xyx(&self) -> Vec3 {
         Vec3::new(self.x, self.y, self.x)
     }
+    pub fn yxy(&self) -> Vec3 {
+        Vec3::new(self.y, self.x, self.y)
+    }
+    pub fn yyx(&self) -> Vec3 {
+        Vec3::new(self.y, self.y, self.x)
+    }
+    pub fn xyy(&self) -> Vec3 {
+        Vec3::new(self.x, self.y, self.y)
+    }
     pub fn yx(&self) -> Vec2 {
         Vec2::new(self.y, self.x)
     }

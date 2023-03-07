@@ -18,6 +18,26 @@ pub fn march(scene: &Scene, origin: Vec3, direction: Vec3, max_steps: usize, max
     return dist;
 }
 
+pub fn get_normal(scene: &Scene, p: Point3) -> Vec3 {
+    let d = scene.signed_distance(p);
+    let e = Vec2::new(0.01, 0.0);
+    let n = Vec3::new(
+        d - scene.signed_distance(p - e.xyy()),
+        d - scene.signed_distance(p - e.yxy()),
+        d - scene.signed_distance(p - e.yyx())
+    );
+    return n.normalize();
+}
+
+pub fn get_light(scene: &Scene, p: Point3) -> f32 {
+    let light_pos = scene.lights[0];
+    let l = (light_pos - p).normalize();
+    let n = get_normal(scene, p);
+
+    let diffuse = n.dot(l);
+    return diffuse;
+}
+
 
 pub fn write_color(imgbuf: &mut ImageBuffer<image::Rgb<u8>, Vec<u8>>, x: i32, y: i32, color: Rgb) {
     let r = color.x;
@@ -47,6 +67,7 @@ pub fn render_frame(image_width: i32, image_height: i32) -> ImageBuffer<image::R
     let mut scene = Scene::new();
     scene.add(Primitive::sphere(Point3::new(0., 1., 6.), 1.));
     scene.add(Primitive::aa_plane(Axis::Y, 0.));
+    scene.add_light(Point3::new(0., 5., 6.));
 
     for x in 0..image_width {
         for y in 0..image_height {
@@ -55,9 +76,11 @@ pub fn render_frame(image_width: i32, image_height: i32) -> ImageBuffer<image::R
             let origin = Vec3::new(0., 1., 0.);
             let direction = Vec3::new(uv.x, uv.y, 1.).normalize();
 
-            let mut d = march(&scene, origin, direction, max_steps, max_dist, surf_dist);
-            d /= 6.;
-            let color = Vec3::new(d, d, d);
+            let d = march(&scene, origin, direction, max_steps, max_dist, surf_dist);
+            let p = origin + direction * d;
+            let diffuse = get_light(&scene, p);
+
+            let color = Vec3::new(diffuse, diffuse, diffuse);
             write_color(&mut imgbuf, x, y, color);
         };
     };
