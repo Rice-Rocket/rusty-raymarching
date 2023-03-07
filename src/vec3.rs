@@ -404,6 +404,13 @@ impl Vec3 {
     pub fn clamp(&self, min: f32, max: f32) -> Self {
         self.max(min).min(max)
     }
+    pub fn lerp(&self, other: Self, t: f32) -> Self {
+        Self {
+            x: self.x + (other.x - self.x) * t,
+            y: self.y + (other.y - self.y) * t,
+            z: self.z + (other.z - self.z) * t,
+        }
+    }
     pub fn dot(&self, other: Self) -> f32 {
         self.x * other.x + self.y * other.y + self.z * other.z
     }

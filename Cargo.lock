@@ -677,6 +677,7 @@ dependencies = [
  "image",
  "macroquad",
  "rand",
+ "rayon",
 ]
 
 [[package]]

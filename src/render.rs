@@ -1,6 +1,8 @@
 #[path = "scene.rs"] mod scene;
 pub use scene::*;
 use macroquad::prelude::{Image, Color};
+use rayon::prelude::*;
+use std::sync::Mutex;
 // use image::{ImageBuffer, self};
 
 
@@ -9,18 +11,14 @@ const MAX_DIST: f32 = 100.;
 const SURF_DIST: f32 = 0.01;
 
 
-pub fn march(scene: &Scene, origin: Vec3, direction: Vec3) -> (f32, Rgb) {
+pub fn march(scene: &Scene, origin: Vec3, direction: Vec3) -> f32 {
     let mut dist = 0.;
-    let mut color = Rgb::origin();
 
-    for i in 0..MAX_STEPS {
+    for _ in 0..MAX_STEPS {
         let p = origin + direction * dist;
-        let (closest, ds) = scene.signed_distance(p);
+        let ds = scene.signed_distance(p).0;
         dist += ds;
         if ds < SURF_DIST {
-            color = closest.material;
-            let ambient_occlusion = 1.0 - (i as f32) / (MAX_STEPS - 1) as f32;
-            color = color * ambient_occlusion;
             break;
         }
         if dist > MAX_DIST {
@@ -28,31 +26,50 @@ pub fn march(scene: &Scene, origin: Vec3, direction: Vec3) -> (f32, Rgb) {
         }
     }
 
-    return (dist, color);
+    return dist;
 }
 
-pub fn get_normal(scene: &Scene, p: Point3) -> (&Primitive, Vec3) {
-    let (obj, d) = scene.signed_distance(p);
+pub fn get_normal(scene: &Scene, p: Point3) -> (Rgb, Vec3) {
+    let (d, color) = scene.signed_distance(p);
     let e = Vec2::new(0.001, 0.0);
     let n = Vec3::new(
-        d - scene.signed_distance(p - e.xyy()).1,
-        d - scene.signed_distance(p - e.yxy()).1,
-        d - scene.signed_distance(p - e.yyx()).1
+        d - scene.signed_distance(p - e.xyy()).0,
+        d - scene.signed_distance(p - e.yxy()).0,
+        d - scene.signed_distance(p - e.yyx()).0
     );
-    return (obj, n.normalize());
+    return (n.normalize(), color);
 }
 
 pub fn get_light(scene: &Scene, p: Point3) -> Rgb {
     let mut total_diffuse = Rgb::origin();
+    let k = 16.0;
+    let darkest = 0.05;
     for light_pos in scene.lights.iter() {
         let l = (*light_pos - p).normalize();
-        let (hit_obj, n) = get_normal(scene, p);
-    
-        let mut diffuse = hit_obj.material * clamp(n.dot(l), 0., 1.);
-        let dist = march(scene, p + n * SURF_DIST * 2., l).0;
-        if dist < (*light_pos - p).length() {
-            diffuse = diffuse * 0.1;
-        }
+        let (n, hit_color) = get_normal(scene, p);
+        let mut diffuse = hit_color * clamp(n.dot(l), darkest, 1.);
+
+        let origin = p + n * SURF_DIST;
+        let mut dist = scene.signed_distance(origin + l).0;
+        let mut res = 1.0f32;
+        let mut ph = 1e+20f32;
+        for _ in 0..MAX_STEPS {
+            let p = origin + l * dist;
+            let ds = scene.signed_distance(p).0;
+            dist += ds;
+            if ds < SURF_DIST {
+                res = darkest;
+                break;
+            }
+            let y = ds * ds / (2.0 * ph);
+            let d = (ds * ds - y * y).sqrt();
+            res = res.min(k * d / (dist - y).max(0.0)).max(darkest);
+            ph = ds;
+            if dist > MAX_DIST {
+                break;
+            }
+        };
+        diffuse = diffuse * res;
         total_diffuse = total_diffuse + diffuse / scene.lights.len() as f32;
     }
     return total_diffuse;
@@ -78,22 +95,22 @@ pub fn write_color(imgbuf: &mut Image, x: i32, y: i32, color: Rgb) {
 
 pub fn render_frame(scene: &Scene, image_width: i32, image_height: i32) -> Image {
     let resolution = Vec2::new(image_width as f32, image_height as f32);
-    let mut imgbuf = Image::gen_image_color(image_width as u16, image_height as u16, Color::new(0.0, 0.0, 0.0, 1.0));
+    let imgbuf = Mutex::new(Image::gen_image_color(image_width as u16, image_height as u16, Color::new(0.0, 0.0, 0.0, 1.0)));
 
-    for x in 0..image_width {
+    (0..image_width).into_par_iter().for_each(|x| {
         for y in 0..image_height {
             // let uv = (Vec2::new(x as f32, (image_height - y) as f32) - resolution * 0.5) / resolution.y;
-            let uv = Vec2::new(x as f32, (image_height - y) as f32) / resolution;
+            let uv = Vec2::new(x as f32 * (image_width as f32 / image_height as f32), (image_height - y) as f32) / resolution;
 
             let (origin, direction) = scene.camera.get_ray(uv);
 
-            let (d, mut color) = march(&scene, origin, direction);
+            let d = march(&scene, origin, direction);
             let p = origin + direction * d;
             let diffuse = get_light(&scene, p);
 
-            color = diffuse;
-            write_color(&mut imgbuf, x, y, color);
+            let color = diffuse;
+            write_color(&mut imgbuf.lock().unwrap(), x, y, color);
         };
-    };
-    return imgbuf;
+    });
+    return imgbuf.lock().unwrap().clone();
 }
