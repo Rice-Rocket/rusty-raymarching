@@ -194,7 +194,7 @@ pub struct Vec3 {
     pub z: f32
 }
 
-impl Add for Vec3 {
+impl Add<Vec3> for Vec3 {
     type Output = Self;
     fn add(self, other: Self) -> Self::Output {
         Self {
@@ -205,13 +205,35 @@ impl Add for Vec3 {
     }
 }
 
-impl Sub for Vec3 {
+impl Add<f32> for Vec3 {
+    type Output = Self;
+    fn add(self, other: f32) -> Self::Output {
+        Self {
+            x: self.x + other,
+            y: self.y + other,
+            z: self.z + other,
+        }
+    }
+}
+
+impl Sub<Vec3> for Vec3 {
     type Output = Self;
     fn sub(self, other: Self) -> Self::Output {
         Self {
             x: self.x - other.x,
             y: self.y - other.y,
             z: self.z - other.z
+        }
+    }
+}
+
+impl Sub<f32> for Vec3 {
+    type Output = Self;
+    fn sub(self, other: f32) -> Self::Output {
+        Self {
+            x: self.x - other,
+            y: self.y - other,
+            z: self.z - other
         }
     }
 }
@@ -357,6 +379,30 @@ impl Vec3 {
     }
     pub fn normalize(&self) -> Self {
         self.clone() / self.length()
+    }
+    pub fn abs(&self) -> Self {
+        Self {
+            x: self.x.abs(),
+            y: self.y.abs(),
+            z: self.z.abs(),
+        }
+    }
+    pub fn max(&self, cap: f32) -> Self {
+        Self {
+            x: self.x.max(cap),
+            y: self.y.max(cap),
+            z: self.z.max(cap),
+        }
+    }
+    pub fn min(&self, cap: f32) -> Self {
+        Self {
+            x: self.x.min(cap),
+            y: self.y.min(cap),
+            z: self.z.min(cap)
+        }
+    }
+    pub fn clamp(&self, min: f32, max: f32) -> Self {
+        self.max(min).min(max)
     }
     pub fn dot(&self, other: Self) -> f32 {
         self.x * other.x + self.y * other.y + self.z * other.z

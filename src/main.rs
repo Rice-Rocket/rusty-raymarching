@@ -1,20 +1,36 @@
 // use fltk::{app, window, frame, prelude::*, image::RgbImage, enums::{ColorDepth, Color}};
-use macroquad::prelude::*;
+use macroquad::prelude::{load_ttf_font, screen_width, screen_height, Texture2D, draw_texture_ex, DrawTextureParams, draw_text_ex, TextParams, Color, get_fps, next_frame};
 #[path = "render.rs"] mod render;
 use render::*;
+
+
+fn basic_scene() -> Scene {
+    let mut scene = Scene::new();
+    scene.set_camera(Camera::new(
+        Point3::new(0., 2., 0.),
+        Vec3::new(-0.15, 1.8, 1.0),
+    ));
+
+    scene.add(Primitive::cuboid(Point3::new(1.0, 1., 6.), Vec3::new(0.5, 0.75, 0.5), Rgb::new(1.0, 0.2, 0.2)));
+    scene.add(Primitive::aa_plane(Axis::Y, 0., Rgb::new(1.0, 1.0, 1.0)));
+    scene.add_light(Point3::new(3., 5., -6.));
+    return scene
+}
+
 
 
 #[macroquad::main("Rusty Raymarching")]
 async fn main() {
     let text_font = load_ttf_font("assets/Monaco.ttf").await.unwrap();
+    let scene = basic_scene();
     loop {
-        let image = render_frame(screen_width() as i32, screen_height() as i32);
+        let image = render_frame(&scene, screen_width() as i32, screen_height() as i32);
         let texture = Texture2D::from_image(&image);
         
         draw_texture_ex(
             texture,
-            0.0, 0.0, WHITE,
-            DrawTextureParams{dest_size: Some(vec2(screen_width(), screen_height())), ..Default::default()}
+            0.0, 0.0, Color::new(1.0, 1.0, 1.0, 1.0),
+            DrawTextureParams{dest_size: Some(macroquad::math::Vec2::new(screen_width(), screen_height())), ..Default::default()}
         );
 
         draw_text_ex(
