@@ -1,16 +1,22 @@
 #[path = "scene.rs"] mod scene;
 pub use scene::*;
-use image::{ImageBuffer, self};
+use macroquad::prelude::{Image, Color};
+// use image::{ImageBuffer, self};
 
 
-pub fn march(scene: &Scene, origin: Vec3, direction: Vec3, max_steps: usize, max_dist: f32, surf_dist: f32) -> f32 {
+const MAX_STEPS: usize = 100;
+const MAX_DIST: f32 = 100.;
+const SURF_DIST: f32 = 0.01;
+
+
+pub fn march(scene: &Scene, origin: Vec3, direction: Vec3) -> f32 {
     let mut dist = 0.;
 
-    for i in 0..max_steps {
+    for i in 0..MAX_STEPS {
         let p = origin + direction * dist;
         let ds = scene.signed_distance(p);
         dist += ds;
-        if (dist > max_dist) || (ds < surf_dist) {
+        if (dist > MAX_DIST) || (ds < SURF_DIST) {
             break;
         }
     }
@@ -34,35 +40,35 @@ pub fn get_light(scene: &Scene, p: Point3) -> f32 {
     let l = (light_pos - p).normalize();
     let n = get_normal(scene, p);
 
-    let diffuse = n.dot(l);
+    let mut diffuse = clamp(n.dot(l), 0., 1.);
+    let d = march(scene, p + n * SURF_DIST * 2., l);
+    if d < (light_pos - p).length() {
+        diffuse *= 0.1;
+    }
     return diffuse;
 }
 
 
-pub fn write_color(imgbuf: &mut ImageBuffer<image::Rgb<u8>, Vec<u8>>, x: i32, y: i32, color: Rgb) {
+pub fn write_color(imgbuf: &mut Image, x: i32, y: i32, color: Rgb) {
     let r = color.x;
     let g = color.y;
     let b = color.z;
 
-    let ir = 256.0 * clamp(r, 0.0, 0.999);
-    let ig = 256.0 * clamp(g, 0.0, 0.999);
-    let ib = 256.0 * clamp(b, 0.0, 0.999);
+    let ir = clamp(r, 0.0, 0.999);
+    let ig = clamp(g, 0.0, 0.999);
+    let ib = clamp(b, 0.0, 0.999);
 
-    imgbuf.put_pixel(
+    imgbuf.set_pixel(
         x as u32,
         y as u32,
-        image::Rgb([ir as u8, ig as u8, ib as u8])
+        Color::new(ir, ig, ib, 1.0)
     );
 }
 
 
-pub fn render_frame(image_width: i32, image_height: i32) -> ImageBuffer<image::Rgb<u8>, Vec<u8>> {
+pub fn render_frame(image_width: i32, image_height: i32) -> Image {
     let resolution = Vec2::new(image_width as f32, image_height as f32);
-    let mut imgbuf = ImageBuffer::new(image_width as u32, image_height as u32);
-
-    let max_steps = 100;
-    let max_dist = 100.;
-    let surf_dist = 0.01;
+    let mut imgbuf = Image::gen_image_color(image_width as u16, image_height as u16, Color::new(0.0, 0.0, 0.0, 1.0));
 
     let mut scene = Scene::new();
     scene.add(Primitive::sphere(Point3::new(0., 1., 6.), 1.));
@@ -76,7 +82,7 @@ pub fn render_frame(image_width: i32, image_height: i32) -> ImageBuffer<image::R
             let origin = Vec3::new(0., 1., 0.);
             let direction = Vec3::new(uv.x, uv.y, 1.).normalize();
 
-            let d = march(&scene, origin, direction, max_steps, max_dist, surf_dist);
+            let d = march(&scene, origin, direction);
             let p = origin + direction * d;
             let diffuse = get_light(&scene, p);
 

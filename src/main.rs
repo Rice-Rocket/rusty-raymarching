@@ -1,24 +1,28 @@
-use fltk::{app, window, frame, prelude::*, image::RgbImage, enums::{ColorDepth, Color}};
+// use fltk::{app, window, frame, prelude::*, image::RgbImage, enums::{ColorDepth, Color}};
+use macroquad::prelude::*;
 #[path = "render.rs"] mod render;
 use render::*;
 
 
+#[macroquad::main("Rusty Raymarching")]
+async fn main() {
+    let text_font = load_ttf_font("assets/Monaco.ttf").await.unwrap();
+    loop {
+        let image = render_frame(screen_width() as i32, screen_height() as i32);
+        let texture = Texture2D::from_image(&image);
+        
+        draw_texture_ex(
+            texture,
+            0.0, 0.0, WHITE,
+            DrawTextureParams{dest_size: Some(vec2(screen_width(), screen_height())), ..Default::default()}
+        );
 
-fn main() {
-    let app = app::App::default().with_scheme(app::AppScheme::Oxy);
-    let mut window = window::Window::new(100, 100, 1280, 720, "Rusty Raymarching");
-
-    let image = render_frame(window.width(), window.height());
-    let rgbimage = RgbImage::new(&image.into_raw(), window.width(), window.height(), ColorDepth::Rgb8).unwrap();
-
-    let mut image_frame = frame::Frame::new(0, 0, window.width(), window.height(), "");
-    image_frame.set_image(Some(rgbimage));
-
-    window.make_resizable(true);
-    window.end();
-    window.show();
-
-    window.set_color(Color::Black);
-
-    app.run().unwrap();
+        draw_text_ex(
+            &format!("FPS: {}", get_fps()),
+            8.0,
+            24.0,
+            TextParams{font: text_font, font_size: 16u16, color: Color::new(1.0, 1.0, 1.0, 0.7), ..Default::default()}
+        );
+        next_frame().await
+    }
 }
